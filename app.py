@@ -6,18 +6,25 @@ import uuid
 import plotly.express as px
 
 # --- KONFIGURASI HALAMAN ---
-st.set_page_config(page_title="Upkeep & Manuring Daily Plan", page_icon="🌱", layout="centered")
+st.set_page_config(page_title="Monitoring UnM", page_icon="🌱", layout="centered")
 
-# GANTI TULISAN DI BAWAH INI DENGAN URL PIPEDREAM BAPAK
+# GANTI DENGAN URL PIPEDREAM BAPAK
 PIPEDREAM_URL = "https://eo5jyzaisu8ezte.m.pipedream.net" 
 
-# --- CSS MOBILE FRIENDLY ---
 st.markdown("""
     <style>
     .stButton button { width: 100%; border-radius: 8px; font-weight: bold; }
     div[data-testid="stExpander"] { border: 1px solid #e0e0e0; border-radius: 10px; margin-bottom: 10px; }
     </style>
     """, unsafe_allow_html=True)
+
+# --- FUNGSI FORMAT ANGKA CERDAS (Hapus .0) ---
+def fmt_num(val):
+    if val is None or val == "": return "0"
+    try:
+        f = float(val)
+        return f"{int(f)}" if f.is_integer() else f"{f}"
+    except: return str(val)
 
 # --- INISIALISASI DATABASE LOKAL ---
 if 'master_pengawas' not in st.session_state: st.session_state.master_pengawas = ["Nama Pengawas"]
@@ -36,7 +43,7 @@ def reset_form():
     st.session_state.paddocks = [{"name": "", "luas": None}]
     st.session_state.bahans = [{"name": "", "dosis": None, "satuan": "Kg"}]
 
-st.title("🌱 Upkeep & Manuring Plan")
+st.title("🌱 GPA Monitoring v6.1")
 tab_in, tab_wa, tab_dash, tab_hist, tab_mas = st.tabs(["📝 INPUT", "📱 REKAP", "📊 DASH", "📜 HIST", "⚙️ MASTER"])
 # ==========================================
 # TAB 1: FORM INPUT
@@ -48,15 +55,17 @@ with tab_in:
     c1, c2 = st.columns(2)
     kegiatan = c1.selectbox("Kegiatan", st.session_state.master_kegiatan, key="in_keg")
     tipe = c2.selectbox("Tipe Laporan", ["Planning", "Hasil"], key="in_tipe")
-    hk = st.number_input("Total HK", min_value=0.0, step=0.5, key="in_hk")
+    
+    # value=None membuat kotak benar-benar kosong, tidak ada angka 0
+    hk = st.number_input("Total HK", min_value=0.0, step=0.5, value=None, key="in_hk", placeholder="0")
 
     st.markdown("---")
     st.subheader("📍 Lokasi Paddock")
     total_luas = 0.0
     for i, p in enumerate(st.session_state.paddocks):
         cols = st.columns([2, 1])
-        st.session_state.paddocks[i]["name"] = cols[0].text_input(f"Paddock {i+1}", value=p["name"], key=f"p_n_{i}")
-        st.session_state.paddocks[i]["luas"] = cols[1].number_input(f"Ha {i+1}", value=p["luas"], key=f"p_l_{i}")
+        st.session_state.paddocks[i]["name"] = cols[0].text_input(f"Paddock {i+1}", value=p["name"], key=f"p_n_{i}", placeholder="Nama")
+        st.session_state.paddocks[i]["luas"] = cols[1].number_input(f"Ha {i+1}", value=p["luas"], value=None if p["luas"] is None else p["luas"], key=f"p_l_{i}", placeholder="0")
         total_luas += (st.session_state.paddocks[i]["luas"] or 0.0)
     
     if st.button("➕ Tambah Paddock"): st.session_state.paddocks.append({"name": "", "luas": None}); st.rerun()
@@ -66,10 +75,10 @@ with tab_in:
     for i, b in enumerate(st.session_state.bahans):
         b_n = st.selectbox(f"Bahan {i+1}", [""] + st.session_state.master_bahan, key=f"b_n_{i}")
         c3, c4, c5 = st.columns([2, 2, 2])
-        b_d = c3.number_input(f"Dosis {i+1}", value=b["dosis"], key=f"b_d_{i}")
+        b_d = c3.number_input(f"Dosis {i+1}", value=None if b["dosis"] is None else b["dosis"], key=f"b_d_{i}", placeholder="0")
         b_s = c4.selectbox(f"Sat {i+1}", ["Kg", "L", "mL", "Gram", "Pcs"], key=f"b_s_{i}")
         t_kebutuhan = round(total_luas * (b_d or 0.0), 2)
-        c5.text_input(f"Total {i+1}", value=f"{t_kebutuhan} {b_s}", disabled=True)
+        c5.text_input(f"Total {i+1}", value=f"{fmt_num(t_kebutuhan)} {b_s}", disabled=True)
         st.session_state.bahans[i] = {"name": b_n, "dosis": b_d, "satuan": b_s}
 
     if st.button("➕ Tambah Bahan"): st.session_state.bahans.append({"name": "", "dosis": None, "satuan": "Kg"}); st.rerun()
@@ -78,9 +87,9 @@ with tab_in:
     st.subheader("🚜 Unit & Keterangan")
     unit_nm = st.text_input("Nama Alat/Unit", key="in_unit")
     cx, cy, cz = st.columns(3)
-    val_rdy = cx.number_input("🟢 Rdy", value=None, key="in_rdy")
-    val_bdn = cy.number_input("🔴 Bdn", value=None, key="in_bdn")
-    val_sby = cz.number_input("🟡 Sby", value=None, key="in_sby")
+    val_rdy = cx.number_input("🟢 Rdy", value=None, key="in_rdy", placeholder="0")
+    val_bdn = cy.number_input("🔴 Bdn", value=None, key="in_bdn", placeholder="0")
+    val_sby = cy.number_input("🟡 Sby", value=None, key="in_sby", placeholder="0")
     ket_add = st.text_area("Keterangan Tambahan", key="in_ket")
 
     if st.button("💾 SIMPAN & KIRIM DATA", type="primary"):
@@ -98,7 +107,7 @@ with tab_in:
                 requests.post(PIPEDREAM_URL, json=payload)
                 st.session_state.history.insert(0, payload)
                 reset_form()
-                st.success("✅ Data Terkirim!"); st.rerun()
+                st.success("✅ Data Terkirim & Form Dibersihkan!"); st.rerun()
             except Exception as e:
                 st.error(f"Gagal: {e}")
 # ==========================================
@@ -120,16 +129,22 @@ with tab_wa:
         elif not selected_types: judul_laporan = "LAPORAN HARIAN GPA"
         else: judul_laporan = "DAILY PLANNING & HASIL"
 
-        rekap = f"*{judul_laporan}*\n📅 *Tanggal:* {tgl_wa}\n"
+        # FORMAT TANGGAL DD/MM/YYYY
+        tgl_indo = datetime.datetime.strptime(str(tgl_wa), "%Y-%m-%d").strftime("%d/%m/%Y")
+        rekap = f"*{judul_laporan}*\n📅 *Tanggal:* {tgl_indo}\n"
         
         for key in sel_keys:
             d = opts[key]
             rekap += f"\n*-------------------------*\n"
-            rekap += f"👤 *Pengawas:* {d['pengirim']}\n📝 *{d['kegiatan']}* ({d['type']})\n"
-            rekap += f"👷 HK: {d['hk']} | 🚜 Unit: {d['unit']} (R:{d['rdy']} B:{d['bdn']} S:{d['sby']})\n"
-            rekap += f"📍 *Paddock:* " + ", ".join([f"{p['name']} ({p['luas']}Ha)" for p in d['data_paddock']]) + "\n"
+            rekap += f"👤 *Pengawas:* {d['pengirim']}\n"
+            # Label (Planning) atau (Hasil) di sini sudah saya hapus
+            rekap += f"📝 *{d['kegiatan']}*\n" 
+            
+            # Penggunaan fmt_num agar 2.0 jadi 2
+            rekap += f"👷 HK: {fmt_num(d['hk'])} | 🚜 Unit: {d['unit']} (R:{fmt_num(d['rdy'])} B:{fmt_num(d['bdn'])} S:{fmt_num(d['sby'])})\n"
+            rekap += f"📍 *Paddock:* " + ", ".join([f"{p['name']} ({fmt_num(p['luas'])}Ha)" for p in d['data_paddock']]) + "\n"
             if d['data_bahan']:
-                rekap += f"🧪 *Bahan:* " + ", ".join([f"{b['name']} ({b['dosis']} {b['satuan']}/Ha)" for b in d['data_bahan']]) + "\n"
+                rekap += f"🧪 *Bahan:* " + ", ".join([f"{b['name']} ({fmt_num(b['dosis'])} {b['satuan']}/Ha)" for b in d['data_bahan']]) + "\n"
             rekap += f"ℹ️ *Ket:* {d['ket']}\n"
         
         st.markdown("#### Preview Teks:")
@@ -144,12 +159,12 @@ with tab_wa:
                 e_tipe = col_e3.selectbox("Tipe", ["Planning", "Hasil"], index=0 if d['type']=="Planning" else 1, key=f"e_t_{i}")
                 
                 col_u1, col_u2 = st.columns([1, 2])
-                e_hk = col_u1.number_input("HK", value=float(d['hk']), step=0.5, key=f"e_hk_{i}")
+                e_hk = col_u1.number_input("HK", value=float(d['hk'] or 0), step=0.5, key=f"e_hk_{i}")
                 e_unit = col_u2.text_input("Unit", value=d['unit'], key=f"e_u_{i}")
                 
-                e_rdy = col_u1.number_input("Rdy", value=int(d['rdy']), key=f"e_r_{i}")
-                e_bdn = col_u2.number_input("Bdn", value=int(d['bdn']), key=f"e_b_{i}")
-                e_sby = col_u1.number_input("Sby", value=int(d['sby']), key=f"e_s_{i}")
+                e_rdy = col_u1.number_input("Rdy", value=int(d['rdy'] or 0), key=f"e_r_{i}")
+                e_bdn = col_u2.number_input("Bdn", value=int(d['bdn'] or 0), key=f"e_b_{i}")
+                e_sby = col_u1.number_input("Sby", value=int(d['sby'] or 0), key=f"e_s_{i}")
                 e_ket = col_u2.text_input("Ket", value=d['ket'], key=f"e_ket_{i}")
                 
                 st.markdown("**Data Paddock (Edit Nama/Luas)**")
@@ -203,7 +218,8 @@ with tab_dash:
 with tab_hist:
     st.subheader("📜 10 History Terakhir")
     for h in st.session_state.history[:10]:
-        st.write(f"- {h['tgl']} | {h['kegiatan']} ({h['type']}) oleh {h['pengirim']}")
+        tgl_indo = datetime.datetime.strptime(str(h['tgl']), "%Y-%m-%d").strftime("%d/%m/%Y")
+        st.write(f"- {tgl_indo} | {h['kegiatan']} ({h['type']}) oleh {h['pengirim']}")
 # ==========================================
 # TAB 5: MASTER DATA
 # ==========================================
