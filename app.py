@@ -65,7 +65,7 @@ with tab_in:
     for i, p in enumerate(st.session_state.paddocks):
         cols = st.columns([2, 1])
         st.session_state.paddocks[i]["name"] = cols[0].text_input(f"Paddock {i+1}", value=p["name"], key=f"p_n_{i}", placeholder="Nama")
-        st.session_state.paddocks[i]["luas"] = cols[1].number_input(f"Ha {i+1}", value=p["luas"], value=None if p["luas"] is None else p["luas"], key=f"p_l_{i}", placeholder="0")
+        st.session_state.paddocks[i]["luas"] = cols[1].number_input(f"Ha {i+1}", value=p["luas"], key=f"p_l_{i}", placeholder="0")
         total_luas += (st.session_state.paddocks[i]["luas"] or 0.0)
     
     if st.button("➕ Tambah Paddock"): st.session_state.paddocks.append({"name": "", "luas": None}); st.rerun()
